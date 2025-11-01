@@ -1,0 +1,27 @@
+{
+  "name": "Claude Weidner - Break The Chains™",
+  "short_name": "Claude Weidner",
+  "description": "Health Transformation Advocate. Creator of Break The Chains™ chronic illness management ecosystem.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#667eea",
+  "theme_color": "#764ba2",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "lifestyle", "medical"],
+  "lang": "en-US",
+  "dir": "ltr"
+}
