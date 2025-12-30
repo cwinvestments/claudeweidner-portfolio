@@ -1,3 +1,5 @@
+import ContactForm from './components/ContactForm';
+
 export default function Home() {
   const projects = [
     {
@@ -267,19 +269,14 @@ export default function Home() {
 
       {/* Contact Section */}
       <section id="contact" className="bg-gray-50 py-16">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
+        <div className="max-w-2xl mx-auto px-6">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4 text-center">
             Let's Work Together
           </h2>
-          <p className="text-xl text-gray-700 mb-8">
-            Ready to build your project? Let's discuss how I can bring your vision to life.
+          <p className="text-xl text-gray-700 mb-8 text-center">
+            Ready to build your project? Tell me about your vision.
           </p>
-          <a
-            href="mailto:claude@claudeweidner.com"
-            className="inline-block bg-green-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-600 transition text-lg"
-          >
-            Get In Touch
-          </a>
+          <ContactForm />
         </div>
       </section>
 
