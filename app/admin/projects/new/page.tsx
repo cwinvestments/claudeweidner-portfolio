@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AdminNav from '../../components/AdminNav';
 import Link from 'next/link';
@@ -20,7 +20,7 @@ interface GeneralCredential {
   notes: string;
 }
 
-export default function NewProjectPage() {
+function NewProjectPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -731,5 +731,17 @@ export default function NewProjectPage() {
         </form>
       </main>
     </div>
+  );
+}
+
+export default function NewProjectPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    }>
+      <NewProjectPageContent />
+    </Suspense>
   );
 }
