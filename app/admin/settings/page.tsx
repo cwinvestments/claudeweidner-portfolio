@@ -156,7 +156,9 @@ export default function SettingsPage() {
           </p>
           <div className="bg-gray-900 rounded-lg p-4 font-mono text-sm">
             <div className="text-gray-400 space-y-2">
-              <p><span className="text-green-400">NEXT_PUBLIC_SUPABASE_URL</span>=your-supabase-url</p>
+              <p><span className="text-blue-400"># Existing (already configured)</span></p>
+              <p><span className="text-green-400">SUPABASE_URL</span>=your-supabase-url</p>
+              <p className="mt-3"><span className="text-blue-400"># New (add these)</span></p>
               <p><span className="text-green-400">SUPABASE_SERVICE_ROLE_KEY</span>=your-service-role-key</p>
               <p><span className="text-green-400">JWT_SECRET</span>=your-random-secret-min-32-chars</p>
               <p><span className="text-green-400">ENCRYPTION_KEY</span>=your-random-encryption-key</p>

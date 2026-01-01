@@ -2,6 +2,9 @@ import { supabaseAdmin } from '@/lib/supabase';
 import AdminNav from '../components/AdminNav';
 import Link from 'next/link';
 
+// Force dynamic rendering - don't prerender at build time
+export const dynamic = 'force-dynamic';
+
 async function getProjects() {
   const { data: projects } = await supabaseAdmin
     .from('projects')

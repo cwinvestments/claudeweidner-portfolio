@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // Removed 'output: export' to enable API routes for admin dashboard
+  // Netlify supports Next.js server-side rendering natively
   images: {
     unoptimized: true,
   },
