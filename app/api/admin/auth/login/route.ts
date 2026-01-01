@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifyPassword, createSession, setSessionCookie } from '@/lib/auth';
+import { verifyPassword, createSession } from '@/lib/auth';
 
 // Rate limiting store (should match middleware)
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -87,16 +87,25 @@ export async function POST(request: NextRequest) {
     // Create session
     const token = await createSession(user.id, user.email);
 
-    // Set cookie
-    await setSessionCookie(token);
-
-    return NextResponse.json({
+    // Create response with cookie set directly
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
         email: user.email,
       },
     });
+
+    // Set cookie on response object (more reliable than cookies() in Route Handlers)
+    response.cookies.set('admin_session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60, // 24 hours in seconds
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(
