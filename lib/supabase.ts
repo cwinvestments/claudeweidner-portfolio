@@ -48,7 +48,46 @@ export interface ProjectUrls {
   [key: string]: string | undefined;
 }
 
+// Service-specific credential types
+export interface GitHubCredentials {
+  username?: string;
+  password?: string; // Personal access token
+}
+
+export interface NetlifyCredentials {
+  email?: string;
+  password?: string;
+}
+
+export interface RailwayCredentials {
+  email?: string;
+  password?: string;
+}
+
+export interface SupabaseCredentials {
+  email?: string;
+  password?: string;
+  database_password?: string;
+}
+
+export interface GeneralCredential {
+  id: string;
+  service_name: string;
+  url?: string;
+  username?: string;
+  password?: string;
+  notes?: string;
+}
+
 export interface ProjectCredentials {
+  // Service-specific credentials
+  github?: GitHubCredentials;
+  netlify?: NetlifyCredentials;
+  railway?: RailwayCredentials;
+  supabase?: SupabaseCredentials;
+  // General credentials for other services
+  general?: GeneralCredential[];
+  // Legacy fields (for backward compatibility)
   admin_email?: string;
   admin_password?: string;
   api_keys?: Array<{ name: string; key: string }>;

@@ -5,6 +5,15 @@ import { useRouter } from 'next/navigation';
 import AdminNav from '../../components/AdminNav';
 import Link from 'next/link';
 
+interface GeneralCredential {
+  id: string;
+  service_name: string;
+  url: string;
+  username: string;
+  password: string;
+  notes: string;
+}
+
 interface ProjectUrls {
   production_url?: string;
   staging_url?: string;
@@ -15,10 +24,15 @@ interface ProjectUrls {
 }
 
 interface ProjectCredentials {
+  github?: { username?: string; password?: string };
+  netlify?: { email?: string; password?: string };
+  railway?: { email?: string; password?: string };
+  supabase?: { email?: string; password?: string; database_password?: string };
+  general?: GeneralCredential[];
+  // Legacy fields
   admin_email?: string;
   admin_password?: string;
   database_connection_string?: string;
-  api_keys?: Array<{ name: string; key: string }>;
 }
 
 interface Project {
@@ -45,8 +59,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
-  const [showCredentials, setShowCredentials] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
   const [formData, setFormData] = useState({
     name: '',
@@ -66,11 +80,64 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       supabase_dashboard: '',
     },
     credentials: {
-      admin_email: '',
-      admin_password: '',
-      database_connection_string: '',
+      github: { username: '', password: '' },
+      netlify: { email: '', password: '' },
+      railway: { email: '', password: '' },
+      supabase: { email: '', password: '', database_password: '' },
+      general: [] as GeneralCredential[],
     },
   });
+
+  const togglePassword = (field: string) => {
+    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  const copyToClipboard = async (text: string, field: string) => {
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    setCopied(field);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const addGeneralCredential = () => {
+    const newCred: GeneralCredential = {
+      id: crypto.randomUUID(),
+      service_name: '',
+      url: '',
+      username: '',
+      password: '',
+      notes: '',
+    };
+    setFormData({
+      ...formData,
+      credentials: {
+        ...formData.credentials,
+        general: [...formData.credentials.general, newCred],
+      },
+    });
+  };
+
+  const updateGeneralCredential = (id: string, field: keyof GeneralCredential, value: string) => {
+    setFormData({
+      ...formData,
+      credentials: {
+        ...formData.credentials,
+        general: formData.credentials.general.map(cred =>
+          cred.id === id ? { ...cred, [field]: value } : cred
+        ),
+      },
+    });
+  };
+
+  const removeGeneralCredential = (id: string) => {
+    setFormData({
+      ...formData,
+      credentials: {
+        ...formData.credentials,
+        general: formData.credentials.general.filter(cred => cred.id !== id),
+      },
+    });
+  };
 
   useEffect(() => {
     fetchProject();
@@ -86,6 +153,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       }
 
       setProject(data.project);
+
+      // Map project data to form, handling both new and legacy credential formats
+      const creds = data.project.credentials || {};
+      const generalCreds = (creds.general || []).map((c: Partial<GeneralCredential>) => ({
+        id: c.id || crypto.randomUUID(),
+        service_name: c.service_name || '',
+        url: c.url || '',
+        username: c.username || '',
+        password: c.password || '',
+        notes: c.notes || '',
+      }));
+
       setFormData({
         name: data.project.name,
         slug: data.project.slug,
@@ -104,9 +183,24 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           supabase_dashboard: data.project.urls?.supabase_dashboard || '',
         },
         credentials: {
-          admin_email: data.project.credentials?.admin_email || '',
-          admin_password: data.project.credentials?.admin_password || '',
-          database_connection_string: data.project.credentials?.database_connection_string || '',
+          github: {
+            username: creds.github?.username || '',
+            password: creds.github?.password || '',
+          },
+          netlify: {
+            email: creds.netlify?.email || '',
+            password: creds.netlify?.password || '',
+          },
+          railway: {
+            email: creds.railway?.email || '',
+            password: creds.railway?.password || '',
+          },
+          supabase: {
+            email: creds.supabase?.email || '',
+            password: creds.supabase?.password || '',
+            database_password: creds.supabase?.database_password || creds.database_connection_string || '',
+          },
+          general: generalCreds,
         },
       });
     } catch (err) {
@@ -131,9 +225,49 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         Object.entries(formData.urls).filter(([, value]) => value)
       );
 
-      const credentials = Object.fromEntries(
-        Object.entries(formData.credentials).filter(([, value]) => value)
+      // Build credentials object, only including non-empty values
+      const credentials: Record<string, unknown> = {};
+
+      // GitHub
+      if (formData.credentials.github.username || formData.credentials.github.password) {
+        credentials.github = {
+          ...(formData.credentials.github.username && { username: formData.credentials.github.username }),
+          ...(formData.credentials.github.password && { password: formData.credentials.github.password }),
+        };
+      }
+
+      // Netlify
+      if (formData.credentials.netlify.email || formData.credentials.netlify.password) {
+        credentials.netlify = {
+          ...(formData.credentials.netlify.email && { email: formData.credentials.netlify.email }),
+          ...(formData.credentials.netlify.password && { password: formData.credentials.netlify.password }),
+        };
+      }
+
+      // Railway
+      if (formData.credentials.railway.email || formData.credentials.railway.password) {
+        credentials.railway = {
+          ...(formData.credentials.railway.email && { email: formData.credentials.railway.email }),
+          ...(formData.credentials.railway.password && { password: formData.credentials.railway.password }),
+        };
+      }
+
+      // Supabase
+      if (formData.credentials.supabase.email || formData.credentials.supabase.password || formData.credentials.supabase.database_password) {
+        credentials.supabase = {
+          ...(formData.credentials.supabase.email && { email: formData.credentials.supabase.email }),
+          ...(formData.credentials.supabase.password && { password: formData.credentials.supabase.password }),
+          ...(formData.credentials.supabase.database_password && { database_password: formData.credentials.supabase.database_password }),
+        };
+      }
+
+      // General credentials
+      const validGeneralCreds = formData.credentials.general.filter(
+        cred => cred.service_name || cred.username || cred.password
       );
+      if (validGeneralCreds.length > 0) {
+        credentials.general = validGeneralCreds;
+      }
 
       const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
         method: 'PUT',
@@ -191,11 +325,53 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  const copyToClipboard = async (text: string, field: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(field);
-    setTimeout(() => setCopied(null), 2000);
-  };
+  // Reusable credential field component
+  const CredentialField = ({
+    label,
+    value,
+    onChange,
+    fieldKey,
+    placeholder = '',
+    isPassword = false,
+  }: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    fieldKey: string;
+    placeholder?: string;
+    isPassword?: boolean;
+  }) => (
+    <div>
+      <label className="block text-sm font-medium text-gray-400 mb-1">{label}</label>
+      <div className="flex gap-2">
+        <input
+          type={isPassword && !showPasswords[fieldKey] ? 'password' : 'text'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+          placeholder={placeholder}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => togglePassword(fieldKey)}
+            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-400 hover:text-white hover:bg-gray-600 transition text-sm"
+            title={showPasswords[fieldKey] ? 'Hide' : 'Show'}
+          >
+            {showPasswords[fieldKey] ? '🙈' : '👁️'}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => copyToClipboard(value, fieldKey)}
+          className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-400 hover:text-white hover:bg-gray-600 transition text-sm"
+          title="Copy"
+        >
+          {copied === fieldKey ? '✓' : '📋'}
+        </button>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -311,115 +487,326 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          {/* URLs */}
+          {/* Production & Staging URLs */}
           <div className="bg-gray-800 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">URLs</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">Application URLs</h2>
             <div className="grid md:grid-cols-2 gap-6">
-              {Object.entries(formData.urls).map(([key, value]) => (
-                <div key={key}>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={value}
-                      onChange={(e) => setFormData({ ...formData, urls: { ...formData.urls, [key]: e.target.value } })}
-                      className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                    {value && (
-                      <a
-                        href={value}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-gray-700 px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 transition"
-                      >
-                        ↗
-                      </a>
-                    )}
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Production URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formData.urls.production_url}
+                    onChange={(e) => setFormData({ ...formData, urls: { ...formData.urls, production_url: e.target.value } })}
+                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  {formData.urls.production_url && (
+                    <a
+                      href={formData.urls.production_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-3 bg-gray-700 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 transition"
+                    >
+                      ↗
+                    </a>
+                  )}
                 </div>
-              ))}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Staging URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formData.urls.staging_url}
+                    onChange={(e) => setFormData({ ...formData, urls: { ...formData.urls, staging_url: e.target.value } })}
+                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  {formData.urls.staging_url && (
+                    <a
+                      href={formData.urls.staging_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-3 bg-gray-700 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 transition"
+                    >
+                      ↗
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Credentials */}
+          {/* GitHub */}
+          <div className="bg-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-4">GitHub</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Repository URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formData.urls.github_repo}
+                    onChange={(e) => setFormData({ ...formData, urls: { ...formData.urls, github_repo: e.target.value } })}
+                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  {formData.urls.github_repo && (
+                    <a
+                      href={formData.urls.github_repo}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-3 bg-gray-700 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 transition"
+                    >
+                      ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <CredentialField
+                  label="Username"
+                  value={formData.credentials.github.username}
+                  onChange={(v) => setFormData({ ...formData, credentials: { ...formData.credentials, github: { ...formData.credentials.github, username: v } } })}
+                  fieldKey="github_username"
+                  placeholder="GitHub username"
+                />
+                <CredentialField
+                  label="Token / Password"
+                  value={formData.credentials.github.password}
+                  onChange={(v) => setFormData({ ...formData, credentials: { ...formData.credentials, github: { ...formData.credentials.github, password: v } } })}
+                  fieldKey="github_password"
+                  placeholder="Personal access token"
+                  isPassword
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Netlify */}
+          <div className="bg-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-4">Netlify</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Dashboard URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formData.urls.netlify_dashboard}
+                    onChange={(e) => setFormData({ ...formData, urls: { ...formData.urls, netlify_dashboard: e.target.value } })}
+                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  {formData.urls.netlify_dashboard && (
+                    <a
+                      href={formData.urls.netlify_dashboard}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-3 bg-gray-700 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 transition"
+                    >
+                      ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <CredentialField
+                  label="Email"
+                  value={formData.credentials.netlify.email}
+                  onChange={(v) => setFormData({ ...formData, credentials: { ...formData.credentials, netlify: { ...formData.credentials.netlify, email: v } } })}
+                  fieldKey="netlify_email"
+                  placeholder="Netlify account email"
+                />
+                <CredentialField
+                  label="Password"
+                  value={formData.credentials.netlify.password}
+                  onChange={(v) => setFormData({ ...formData, credentials: { ...formData.credentials, netlify: { ...formData.credentials.netlify, password: v } } })}
+                  fieldKey="netlify_password"
+                  placeholder="Netlify password"
+                  isPassword
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Railway */}
+          <div className="bg-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-4">Railway</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Dashboard URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formData.urls.railway_dashboard}
+                    onChange={(e) => setFormData({ ...formData, urls: { ...formData.urls, railway_dashboard: e.target.value } })}
+                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  {formData.urls.railway_dashboard && (
+                    <a
+                      href={formData.urls.railway_dashboard}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-3 bg-gray-700 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 transition"
+                    >
+                      ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <CredentialField
+                  label="Email"
+                  value={formData.credentials.railway.email}
+                  onChange={(v) => setFormData({ ...formData, credentials: { ...formData.credentials, railway: { ...formData.credentials.railway, email: v } } })}
+                  fieldKey="railway_email"
+                  placeholder="Railway account email"
+                />
+                <CredentialField
+                  label="Password"
+                  value={formData.credentials.railway.password}
+                  onChange={(v) => setFormData({ ...formData, credentials: { ...formData.credentials, railway: { ...formData.credentials.railway, password: v } } })}
+                  fieldKey="railway_password"
+                  placeholder="Railway password"
+                  isPassword
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Supabase */}
+          <div className="bg-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-4">Supabase</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Dashboard URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formData.urls.supabase_dashboard}
+                    onChange={(e) => setFormData({ ...formData, urls: { ...formData.urls, supabase_dashboard: e.target.value } })}
+                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  {formData.urls.supabase_dashboard && (
+                    <a
+                      href={formData.urls.supabase_dashboard}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-3 bg-gray-700 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 transition"
+                    >
+                      ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <CredentialField
+                  label="Email"
+                  value={formData.credentials.supabase.email}
+                  onChange={(v) => setFormData({ ...formData, credentials: { ...formData.credentials, supabase: { ...formData.credentials.supabase, email: v } } })}
+                  fieldKey="supabase_email"
+                  placeholder="Supabase account email"
+                />
+                <CredentialField
+                  label="Password"
+                  value={formData.credentials.supabase.password}
+                  onChange={(v) => setFormData({ ...formData, credentials: { ...formData.credentials, supabase: { ...formData.credentials.supabase, password: v } } })}
+                  fieldKey="supabase_password"
+                  placeholder="Supabase password"
+                  isPassword
+                />
+              </div>
+              <CredentialField
+                label="Database Password"
+                value={formData.credentials.supabase.database_password}
+                onChange={(v) => setFormData({ ...formData, credentials: { ...formData.credentials, supabase: { ...formData.credentials.supabase, database_password: v } } })}
+                fieldKey="supabase_db_password"
+                placeholder="Database password"
+                isPassword
+              />
+            </div>
+          </div>
+
+          {/* General Credentials */}
           <div className="bg-gray-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-semibold text-white">Credentials</h2>
-                <p className="text-gray-400 text-sm">Stored encrypted</p>
+                <h2 className="text-xl font-semibold text-white">General Credentials</h2>
+                <p className="text-gray-400 text-sm">Other logins related to this project</p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowCredentials(!showCredentials)}
-                className="text-sm text-blue-400 hover:text-blue-300"
+                onClick={addGeneralCredential}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
               >
-                {showCredentials ? 'Hide' : 'Show'} credentials
+                + Add Credential
               </button>
             </div>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Admin Email</label>
-                <div className="flex gap-2">
-                  <input
-                    type={showCredentials ? 'text' : 'password'}
-                    value={formData.credentials.admin_email}
-                    onChange={(e) => setFormData({ ...formData, credentials: { ...formData.credentials, admin_email: e.target.value } })}
-                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                  {formData.credentials.admin_email && (
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(formData.credentials.admin_email, 'email')}
-                      className="bg-gray-700 px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 transition"
-                    >
-                      {copied === 'email' ? '✓' : '📋'}
-                    </button>
-                  )}
-                </div>
+
+            {formData.credentials.general.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No general credentials added yet</p>
+            ) : (
+              <div className="space-y-6">
+                {formData.credentials.general.map((cred, index) => (
+                  <div key={cred.id} className="bg-gray-750 border border-gray-700 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-gray-400 text-sm">Credential #{index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeGeneralCredential(cred.id)}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Service Name *</label>
+                        <input
+                          type="text"
+                          value={cred.service_name}
+                          onChange={(e) => updateGeneralCredential(cred.id, 'service_name', e.target.value)}
+                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          placeholder="e.g., AWS, Stripe, SendGrid"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">URL (optional)</label>
+                        <input
+                          type="url"
+                          value={cred.url}
+                          onChange={(e) => updateGeneralCredential(cred.id, 'url', e.target.value)}
+                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          placeholder="https://..."
+                        />
+                      </div>
+                      <CredentialField
+                        label="Username / Email"
+                        value={cred.username}
+                        onChange={(v) => updateGeneralCredential(cred.id, 'username', v)}
+                        fieldKey={`general_${cred.id}_username`}
+                        placeholder="Username or email"
+                      />
+                      <CredentialField
+                        label="Password / API Key"
+                        value={cred.password}
+                        onChange={(v) => updateGeneralCredential(cred.id, 'password', v)}
+                        fieldKey={`general_${cred.id}_password`}
+                        placeholder="Password or API key"
+                        isPassword
+                      />
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Notes</label>
+                        <input
+                          type="text"
+                          value={cred.notes}
+                          onChange={(e) => updateGeneralCredential(cred.id, 'notes', e.target.value)}
+                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          placeholder="Any additional notes..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Admin Password</label>
-                <div className="flex gap-2">
-                  <input
-                    type={showCredentials ? 'text' : 'password'}
-                    value={formData.credentials.admin_password}
-                    onChange={(e) => setFormData({ ...formData, credentials: { ...formData.credentials, admin_password: e.target.value } })}
-                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                  {formData.credentials.admin_password && (
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(formData.credentials.admin_password, 'password')}
-                      className="bg-gray-700 px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 transition"
-                    >
-                      {copied === 'password' ? '✓' : '📋'}
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-300 mb-2">Database Connection String</label>
-                <div className="flex gap-2">
-                  <input
-                    type={showCredentials ? 'text' : 'password'}
-                    value={formData.credentials.database_connection_string}
-                    onChange={(e) => setFormData({ ...formData, credentials: { ...formData.credentials, database_connection_string: e.target.value } })}
-                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-mono text-sm"
-                  />
-                  {formData.credentials.database_connection_string && (
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(formData.credentials.database_connection_string, 'db')}
-                      className="bg-gray-700 px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 transition"
-                    >
-                      {copied === 'db' ? '✓' : '📋'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Financials */}
