@@ -56,27 +56,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user
+    console.log('[LOGIN] Attempting login for email:', email.toLowerCase());
+
     const { data: user, error } = await supabaseAdmin
       .from('admin_users')
       .select('*')
       .eq('email', email.toLowerCase())
       .single();
 
+    console.log('[LOGIN] Supabase query result - user found:', !!user, 'error:', error?.message || 'none');
+
     if (error || !user) {
+      console.log('[LOGIN] FAILED: User not found in database');
       recordFailedAttempt(ip);
       return NextResponse.json(
-        { error: 'Invalid email or password' },
+        { error: 'Invalid email or password', debug: 'user_not_found' },
         { status: 401 }
       );
     }
 
+    console.log('[LOGIN] User found with id:', user.id);
+    console.log('[LOGIN] Password hash exists:', !!user.password_hash);
+    console.log('[LOGIN] Password hash length:', user.password_hash?.length);
+
     // Verify password
     const isValid = await verifyPassword(password, user.password_hash);
+    console.log('[LOGIN] Password verification result:', isValid);
 
     if (!isValid) {
+      console.log('[LOGIN] FAILED: Password mismatch');
       recordFailedAttempt(ip);
       return NextResponse.json(
-        { error: 'Invalid email or password' },
+        { error: 'Invalid email or password', debug: 'password_mismatch' },
         { status: 401 }
       );
     }
@@ -85,7 +96,9 @@ export async function POST(request: NextRequest) {
     clearAttempts(ip);
 
     // Create session
+    console.log('[LOGIN] Creating JWT session...');
     const token = await createSession(user.id, user.email);
+    console.log('[LOGIN] JWT created successfully, length:', token.length);
 
     // Create response with cookie set directly
     const response = NextResponse.json({
