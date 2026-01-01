@@ -367,7 +367,7 @@ export default function NewProjectPage() {
                     <option value="">Select a client...</option>
                     {clients.map((client) => (
                       <option key={client.id} value={client.id}>
-                        {client.name}{client.company ?  : ''}
+                        {client.name}{client.company ? ` (${client.company})` : ''}
                       </option>
                     ))}
                   </select>
