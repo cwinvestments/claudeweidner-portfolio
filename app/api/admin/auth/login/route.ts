@@ -80,8 +80,14 @@ export async function POST(request: NextRequest) {
     console.log('[LOGIN] Password hash length:', user.password_hash?.length);
 
     // Verify password
-    const isValid = await verifyPassword(password, user.password_hash);
-    console.log('[LOGIN] Password verification result:', isValid);
+    let isValid = false;
+    try {
+      isValid = await verifyPassword(password, user.password_hash);
+      console.log('[LOGIN] Password verification result:', isValid);
+    } catch (verifyError) {
+      console.error('[LOGIN] Password verification threw error:', verifyError);
+      throw verifyError;
+    }
 
     if (!isValid) {
       console.log('[LOGIN] FAILED: Password mismatch');
@@ -121,8 +127,9 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('Login error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'no stack');
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
