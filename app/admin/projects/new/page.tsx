@@ -1,9 +1,15 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, FormEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AdminNav from '../../components/AdminNav';
 import Link from 'next/link';
+
+interface Client {
+  id: string;
+  name: string;
+  company: string | null;
+}
 
 interface GeneralCredential {
   id: string;
@@ -16,15 +22,21 @@ interface GeneralCredential {
 
 export default function NewProjectPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [clients, setClients] = useState<Client[]>([]);
+
+  const initialClientId = searchParams.get('client_id') || '';
 
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
     status: 'development' as 'live' | 'development' | 'paused',
+    project_type: initialClientId ? 'client' : 'personal' as 'personal' | 'client',
+    client_id: initialClientId,
     description: '',
     notes: '',
     tech_stack: '',
@@ -46,6 +58,22 @@ export default function NewProjectPage() {
       general: [] as GeneralCredential[],
     },
   });
+
+  // Fetch clients for dropdown
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const response = await fetch('/api/admin/clients?active=true');
+        const data = await response.json();
+        if (response.ok) {
+          setClients(data.clients || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch clients:', err);
+      }
+    }
+    fetchClients();
+  }, []);
 
   const togglePassword = (field: string) => {
     setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
@@ -165,6 +193,8 @@ export default function NewProjectPage() {
           name: formData.name,
           slug: formData.slug,
           status: formData.status,
+          project_type: formData.project_type,
+          client_id: formData.project_type === 'client' ? formData.client_id || null : null,
           description: formData.description || null,
           notes: formData.notes || null,
           tech_stack: techStack,
@@ -311,6 +341,43 @@ export default function NewProjectPage() {
                   <option value="paused">Paused</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Project Type</label>
+                <select
+                  value={formData.project_type}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    project_type: e.target.value as 'personal' | 'client',
+                    client_id: e.target.value === 'personal' ? '' : formData.client_id
+                  })}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="personal">Personal Project</option>
+                  <option value="client">Client Project</option>
+                </select>
+              </div>
+              {formData.project_type === 'client' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Client</label>
+                  <select
+                    value={formData.client_id}
+                    onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  >
+                    <option value="">Select a client...</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.name}{client.company ?  : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {clients.length === 0 && (
+                    <p className="text-gray-500 text-sm mt-1">
+                      No clients found. <Link href="/admin/clients/new" className="text-blue-400 hover:underline">Add a client</Link>
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Tech Stack <span className="text-gray-500 text-xs">(comma-separated)</span>

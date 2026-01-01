@@ -4,12 +4,26 @@ import { encryptCredentials, decryptCredentials } from '@/lib/encryption';
 import type { ProjectCredentials } from '@/lib/supabase';
 
 // GET all projects
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const { data: projects, error } = await supabaseAdmin
+    const { searchParams } = new URL(request.url);
+    const projectType = searchParams.get('type'); // 'personal' or 'client'
+    const clientId = searchParams.get('client_id');
+
+    let query = supabaseAdmin
       .from('projects')
-      .select('*')
+      .select('*, clients(id, name, company)')
       .order('name', { ascending: true });
+
+    if (projectType === 'personal' || projectType === 'client') {
+      query = query.eq('project_type', projectType);
+    }
+
+    if (clientId) {
+      query = query.eq('client_id', clientId);
+    }
+
+    const { data: projects, error } = await query;
 
     if (error) {
       console.error('Error fetching projects:', error);
@@ -50,6 +64,8 @@ export async function POST(request: NextRequest) {
       name,
       slug,
       status = 'development',
+      project_type = 'personal',
+      client_id = null,
       urls = {},
       credentials = {},
       tech_stack = [],
@@ -74,6 +90,30 @@ export async function POST(request: NextRequest) {
         { error: 'Slug must be lowercase letters, numbers, and hyphens only' },
         { status: 400 }
       );
+    }
+
+    // Validate project_type
+    if (project_type !== 'personal' && project_type !== 'client') {
+      return NextResponse.json(
+        { error: 'Project type must be "personal" or "client"' },
+        { status: 400 }
+      );
+    }
+
+    // Validate client_id if project is client type
+    if (project_type === 'client' && client_id) {
+      const { data: clientExists } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', client_id)
+        .single();
+
+      if (!clientExists) {
+        return NextResponse.json(
+          { error: 'Client not found' },
+          { status: 400 }
+        );
+      }
     }
 
     // Check for duplicate slug
@@ -102,6 +142,8 @@ export async function POST(request: NextRequest) {
         name,
         slug,
         status,
+        project_type,
+        client_id: project_type === 'client' ? client_id : null,
         urls,
         credentials: encryptedCredentials,
         tech_stack,
@@ -110,7 +152,7 @@ export async function POST(request: NextRequest) {
         monthly_cost,
         revenue,
       })
-      .select()
+      .select('*, clients(id, name, company)')
       .single();
 
     if (error) {

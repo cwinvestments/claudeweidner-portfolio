@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 async function getProjects() {
   const { data: projects } = await supabaseAdmin
     .from('projects')
-    .select('id, name, slug, status, urls, monthly_cost, revenue, updated_at')
+    .select('id, name, slug, status, project_type, urls, monthly_cost, revenue, updated_at, clients(id, name)')
     .order('name', { ascending: true });
 
   return projects || [];

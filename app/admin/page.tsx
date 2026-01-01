@@ -19,13 +19,15 @@ function calculateMonthlyAmount(expense: Expense): number {
 }
 
 async function getStats() {
-  const [projectsResult, expensesResult] = await Promise.all([
-    supabaseAdmin.from('projects').select('status, monthly_cost, revenue'),
+  const [projectsResult, expensesResult, clientsResult] = await Promise.all([
+    supabaseAdmin.from('projects').select('status, project_type, monthly_cost, revenue'),
     supabaseAdmin.from('expenses').select('*').eq('is_active', true),
+    supabaseAdmin.from('clients').select('id, is_active'),
   ]);
 
   const projects = projectsResult.data || [];
   const expenses = (expensesResult.data as Expense[]) || [];
+  const clients = clientsResult.data || [];
 
   const projectCosts = projects.reduce((sum, p) => sum + (p.monthly_cost || 0), 0);
   const expenseCosts = expenses.reduce((sum, e) => sum + calculateMonthlyAmount(e), 0);
@@ -35,6 +37,10 @@ async function getStats() {
     live: projects.filter((p) => p.status === 'live').length,
     development: projects.filter((p) => p.status === 'development').length,
     paused: projects.filter((p) => p.status === 'paused').length,
+    personal: projects.filter((p) => p.project_type === 'personal').length,
+    client: projects.filter((p) => p.project_type === 'client').length,
+    clientCount: clients.length,
+    activeClients: clients.filter((c) => c.is_active).length,
     projectCosts,
     expenseCosts,
     totalCost: projectCosts + expenseCosts,
@@ -62,6 +68,8 @@ export default async function AdminDashboard() {
     { label: 'Live', value: stats.live, color: 'bg-green-600' },
     { label: 'In Development', value: stats.development, color: 'bg-yellow-600' },
     { label: 'Paused', value: stats.paused, color: 'bg-gray-600' },
+    { label: 'Personal', value: stats.personal, color: 'bg-purple-600' },
+    { label: 'Client', value: stats.client, color: 'bg-cyan-600' },
     { label: 'Monthly Costs', value: `$${stats.totalCost.toFixed(2)}`, color: 'bg-red-600' },
     { label: 'Monthly Revenue', value: `$${stats.totalRevenue.toFixed(2)}`, color: 'bg-emerald-600' },
   ];
@@ -100,6 +108,13 @@ export default async function AdminDashboard() {
               >
                 <span className="text-2xl">➕</span>
                 <span>Add New Project</span>
+              </Link>
+              <Link
+                href="/admin/clients/new"
+                className="flex items-center gap-3 p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition text-white"
+              >
+                <span className="text-2xl">👤</span>
+                <span>Add New Client</span>
               </Link>
               <Link
                 href="/admin/expenses/new"

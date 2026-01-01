@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { data: project, error } = await supabaseAdmin
       .from('projects')
-      .select('*')
+      .select('*, clients(id, name, company)')
       .eq('id', id)
       .single();
 
@@ -54,6 +54,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       name,
       slug,
       status,
+      project_type,
+      client_id,
       urls,
       credentials,
       tech_stack,
@@ -102,12 +104,41 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Validate project_type if provided
+    if (project_type !== undefined && project_type !== 'personal' && project_type !== 'client') {
+      return NextResponse.json(
+        { error: 'Project type must be "personal" or "client"' },
+        { status: 400 }
+      );
+    }
+
+    // Validate client_id if provided
+    if (client_id !== undefined && client_id !== null) {
+      const { data: clientExists } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', client_id)
+        .single();
+
+      if (!clientExists) {
+        return NextResponse.json(
+          { error: 'Client not found' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Build update object (only include provided fields)
     const updateData: Record<string, unknown> = {};
 
     if (name !== undefined) updateData.name = name;
     if (slug !== undefined) updateData.slug = slug;
     if (status !== undefined) updateData.status = status;
+    if (project_type !== undefined) updateData.project_type = project_type;
+    if (client_id !== undefined) {
+      // If changing to personal, clear client_id
+      updateData.client_id = project_type === 'personal' ? null : client_id;
+    }
     if (urls !== undefined) updateData.urls = urls;
     if (tech_stack !== undefined) updateData.tech_stack = tech_stack;
     if (description !== undefined) updateData.description = description;
@@ -127,7 +158,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       .from('projects')
       .update(updateData)
       .eq('id', id)
-      .select()
+      .select('*, clients(id, name, company)')
       .single();
 
     if (updateError) {

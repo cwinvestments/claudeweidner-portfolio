@@ -95,11 +95,15 @@ export interface ProjectCredentials {
   other?: Array<{ name: string; value: string }>;
 }
 
+export type ProjectType = 'personal' | 'client';
+
 export interface Project {
   id: string;
   name: string;
   slug: string;
   status: 'live' | 'development' | 'paused';
+  project_type: ProjectType;
+  client_id: string | null;
   urls: ProjectUrls;
   credentials: ProjectCredentials;
   tech_stack: string[];
@@ -111,10 +115,16 @@ export interface Project {
   updated_at: string;
 }
 
+export interface ProjectWithClient extends Project {
+  clients: Client | null;
+}
+
 export interface ProjectInsert {
   name: string;
   slug: string;
   status?: 'live' | 'development' | 'paused';
+  project_type?: ProjectType;
+  client_id?: string | null;
   urls?: ProjectUrls;
   credentials?: ProjectCredentials;
   tech_stack?: string[];
@@ -122,6 +132,35 @@ export interface ProjectInsert {
   notes?: string;
   monthly_cost?: number;
   revenue?: number;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  company: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  website: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientInsert {
+  name: string;
+  company?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  website?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+}
+
+export interface ClientWithProjects extends Client {
+  projects: Project[];
 }
 
 export type ExpenseCategory = 'Hosting' | 'Database' | 'Domain' | 'API' | 'Software' | 'Other';
