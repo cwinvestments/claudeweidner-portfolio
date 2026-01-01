@@ -1,33 +1,45 @@
-import { supabaseAdmin, type Project } from '@/lib/supabase';
+import { supabaseAdmin, type Project, type Expense } from '@/lib/supabase';
 import AdminNav from './components/AdminNav';
 import Link from 'next/link';
 
 // Force dynamic rendering - don't prerender at build time
 export const dynamic = 'force-dynamic';
 
-async function getStats() {
-  const { data: projects, error } = await supabaseAdmin
-    .from('projects')
-    .select('status, monthly_cost, revenue');
-
-  if (error || !projects) {
-    return {
-      total: 0,
-      live: 0,
-      development: 0,
-      paused: 0,
-      totalCost: 0,
-      totalRevenue: 0,
-    };
+function calculateMonthlyAmount(expense: Expense): number {
+  switch (expense.billing_cycle) {
+    case 'monthly':
+      return expense.amount;
+    case 'yearly':
+      return expense.amount / 12;
+    case 'one-time':
+      return 0;
+    default:
+      return expense.amount;
   }
+}
+
+async function getStats() {
+  const [projectsResult, expensesResult] = await Promise.all([
+    supabaseAdmin.from('projects').select('status, monthly_cost, revenue'),
+    supabaseAdmin.from('expenses').select('*').eq('is_active', true),
+  ]);
+
+  const projects = projectsResult.data || [];
+  const expenses = (expensesResult.data as Expense[]) || [];
+
+  const projectCosts = projects.reduce((sum, p) => sum + (p.monthly_cost || 0), 0);
+  const expenseCosts = expenses.reduce((sum, e) => sum + calculateMonthlyAmount(e), 0);
 
   return {
     total: projects.length,
     live: projects.filter((p) => p.status === 'live').length,
     development: projects.filter((p) => p.status === 'development').length,
     paused: projects.filter((p) => p.status === 'paused').length,
-    totalCost: projects.reduce((sum, p) => sum + (p.monthly_cost || 0), 0),
+    projectCosts,
+    expenseCosts,
+    totalCost: projectCosts + expenseCosts,
     totalRevenue: projects.reduce((sum, p) => sum + (p.revenue || 0), 0),
+    expenseCount: expenses.length,
   };
 }
 
@@ -90,11 +102,18 @@ export default async function AdminDashboard() {
                 <span>Add New Project</span>
               </Link>
               <Link
-                href="/admin/projects"
+                href="/admin/expenses/new"
                 className="flex items-center gap-3 p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition text-white"
               >
-                <span className="text-2xl">📋</span>
-                <span>View All Projects</span>
+                <span className="text-2xl">💸</span>
+                <span>Add New Expense</span>
+              </Link>
+              <Link
+                href="/admin/expenses"
+                className="flex items-center gap-3 p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition text-white"
+              >
+                <span className="text-2xl">💰</span>
+                <span>View All Expenses</span>
               </Link>
               <a
                 href="/api/admin/export"
@@ -143,14 +162,22 @@ export default async function AdminDashboard() {
         {/* Net Position */}
         <div className="bg-gray-800 rounded-xl p-6">
           <h2 className="text-xl font-semibold text-white mb-4">Financial Summary</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div>
-              <p className="text-gray-400 text-sm">Monthly Costs</p>
-              <p className="text-2xl font-bold text-red-400">-${stats.totalCost.toFixed(2)}</p>
-            </div>
+          <div className="grid md:grid-cols-4 gap-6">
             <div>
               <p className="text-gray-400 text-sm">Monthly Revenue</p>
               <p className="text-2xl font-bold text-green-400">+${stats.totalRevenue.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-sm">Project Costs</p>
+              <p className="text-2xl font-bold text-red-400">-${stats.projectCosts.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-sm">
+                <Link href="/admin/expenses" className="hover:text-blue-400 transition">
+                  Expenses ({stats.expenseCount})
+                </Link>
+              </p>
+              <p className="text-2xl font-bold text-red-400">-${stats.expenseCosts.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-gray-400 text-sm">Net Position</p>
@@ -158,6 +185,11 @@ export default async function AdminDashboard() {
                 {stats.totalRevenue - stats.totalCost >= 0 ? '+' : ''}${(stats.totalRevenue - stats.totalCost).toFixed(2)}
               </p>
             </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-700">
+            <p className="text-gray-500 text-sm">
+              Total Monthly Costs: ${stats.totalCost.toFixed(2)} (Projects: ${stats.projectCosts.toFixed(2)} + Expenses: ${stats.expenseCosts.toFixed(2)})
+            </p>
           </div>
         </div>
       </main>

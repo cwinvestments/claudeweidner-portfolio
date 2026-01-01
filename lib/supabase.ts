@@ -84,3 +84,31 @@ export interface ProjectInsert {
   monthly_cost?: number;
   revenue?: number;
 }
+
+export type ExpenseCategory = 'Hosting' | 'Database' | 'Domain' | 'API' | 'Software' | 'Other';
+export type BillingCycle = 'monthly' | 'yearly' | 'one-time';
+
+export interface Expense {
+  id: string;
+  project_id: string | null;
+  name: string;
+  category: ExpenseCategory;
+  amount: number;
+  billing_cycle: BillingCycle;
+  next_billing_date: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseInsert {
+  project_id?: string | null;
+  name: string;
+  category: ExpenseCategory;
+  amount: number;
+  billing_cycle?: BillingCycle;
+  next_billing_date?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+}
