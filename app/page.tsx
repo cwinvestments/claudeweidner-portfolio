@@ -1,4 +1,6 @@
 import ContactForm from './components/ContactForm';
+import Header from './components/Header';
+import Footer from './components/Footer';
 
 export default function Home() {
   const projects = [
@@ -110,6 +112,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <Header />
+
       {/* Hero Section */}
       <section className="max-w-6xl mx-auto px-6 pt-20 pb-16">
         <div className="text-center">
@@ -280,14 +284,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-8">
-        <div className="max-w-6xl mx-auto px-6 text-center">
-          <p className="text-gray-400">
-            © 2025 Claude Weidner. Full-Stack Developer | Appleton, Wisconsin
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </main>
   );
 }
